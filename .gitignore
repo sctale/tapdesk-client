@@ -67,3 +67,4 @@ flutter/pubspec_overrides.yaml
 build-custom/keys/
 build-custom/out/
 flutter/lib/brand/
+!build-custom/tapdesk-icon-1024.png
