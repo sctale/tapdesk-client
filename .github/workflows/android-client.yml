@@ -117,7 +117,15 @@ jobs:
         run: |
           cd $(dirname $(dirname $(which flutter)))
           if [[ "3.24.5" == ${{env.ANDROID_FLUTTER_VERSION}} ]]; then
-            git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
+            PATCH=${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
+            # flutter-action's cache restores the SDK directory as it looked when
+            # the previous job finished, patch included, so applying it again
+            # fails. Skip instead when it is already in place.
+            if git apply --reverse --check "$PATCH" 2>/dev/null; then
+              echo "flutter patch already present in the cached SDK, skipping"
+            else
+              git apply "$PATCH"
+            fi
           fi
 
       - name: Restore bridge files
