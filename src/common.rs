@@ -2557,7 +2557,9 @@ pub fn read_custom_client(config: &str) {
         log::error!("Failed to decode custom client config");
         return;
     };
-    const KEY: &str = "5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=";
+    // Fork-local: our own custom-client signing key (build-custom/keys/sign.key),
+    // upstream's private key is not part of the open-source repo.
+    const KEY: &str = "HnWYGKp1En+EML6DXDXPAqhDJ2EftrXQdiVu1OeavwI=";
     let Some(pk) = get_rs_pk(KEY) else {
         log::error!("Failed to parse public key of custom client");
         return;

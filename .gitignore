@@ -60,3 +60,10 @@ flutter/web/
 /third_party/libdrmtap/
 # Local git worktrees
 .worktrees/
+
+# custom android build: vendored flutter git deps + generated overrides
+build-custom/vendor/
+flutter/pubspec_overrides.yaml
+build-custom/keys/
+build-custom/out/
+flutter/lib/brand/
