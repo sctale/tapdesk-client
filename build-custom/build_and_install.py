@@ -66,29 +66,43 @@ def report_failure(run_id):
         print("  " + line[-200:])
 
 
-def pick_artifact(run_id, abi):
-    """Prefer the release-signed artifact; fall back to the plain one."""
-    names = [a["name"] for a in gh_json("run", "view", str(run_id), "--repo", REPO,
-                                         "--json", "artifacts")["artifacts"]]
-    for cand in ("apk-%s-signed" % abi, "apk-%s" % abi):
-        if cand in names:
-            return cand
-    sys.exit("这次 run 里没有 APK 产物，现有：%s" % (names or "无"))
+def _apks():
+    return [os.path.join(OUT_DIR, f) for f in os.listdir(OUT_DIR)
+            if f.lower().endswith(".apk")]
 
 
-def download(run_id, artifact, abi):
+def download(run_id, abi):
+    """Prefer the release-signed artifact; fall back to the plain one.
+
+    Names are tried instead of listed because `gh run view --json artifacts`
+    does not exist on every gh version, and the signed artifact packs its file
+    as app-release-signed.apk, so the name inside is not predictable either.
+    app-release*.apk are only ever download scratch -- fetched files are renamed
+    to TapDesk-* -- so clearing them cannot destroy anything worth keeping.
+    """
     os.makedirs(OUT_DIR, exist_ok=True)
-    run(["gh", "run", "download", str(run_id), "--repo", REPO, "--name", artifact, "--dir", OUT_DIR])
-    src = os.path.join(OUT_DIR, "app-release.apk")
-    if not os.path.isfile(src):
-        sys.exit("下载后找不到 app-release.apk")
+    chosen = None
+    src = None
+    for cand in ("apk-%s-signed" % abi, "apk-%s" % abi):
+        for f in os.listdir(OUT_DIR):
+            if f.startswith("app-release") and f.lower().endswith(".apk"):
+                os.remove(os.path.join(OUT_DIR, f))
+        p = subprocess.run(["gh", "run", "download", str(run_id), "--repo", REPO,
+                            "--name", cand, "--dir", OUT_DIR],
+                           cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        fresh = [f for f in _apks() if os.path.basename(f).startswith("app-release")]
+        if p.returncode == 0 and fresh:
+            chosen, src = cand, max(fresh, key=os.path.getmtime)
+            break
+    if not chosen or not src:
+        sys.exit("这次 run 里没有取到 APK 产物")
     version = read_version()
     stamp = datetime.datetime.now().strftime("%m%d-%H%M")
     dst = os.path.join(OUT_DIR, "TapDesk-%s-%s-%s.apk" % (version, abi.split("-")[0], stamp))
     os.replace(src, dst)
-    signed = "signed" in artifact
-    print("\n产物：%s  (%.1f MB, %s签名)" % (dst, os.path.getsize(dst) / 1048576,
-                                       "release " if signed else "debug "))
+    signed = chosen.endswith("-signed")
+    print("\n产物：%s  (%.1f MB, %s)" % (dst, os.path.getsize(dst) / 1048576,
+                                    "release 签名" if signed else "debug 签名"))
     return dst
 
 
@@ -161,8 +175,7 @@ def main():
         report_failure(run_id)
         sys.exit("\n构建结论：%s" % conclusion)
 
-    artifact = pick_artifact(run_id, a.abi)
-    apk = download(run_id, artifact, a.abi)
+    apk = download(run_id, a.abi)
     if not a.no_install:
         install(apk)
     print("\n完成。")
