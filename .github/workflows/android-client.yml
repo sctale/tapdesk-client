@@ -16,8 +16,17 @@ on:
           - aarch64-linux-android
           - armv7-linux-androideabi
           - x86_64-linux-android
+  # Same build, fired from the CLI without the Actions tab:
+  #   gh api -X POST repos/<owner>/<repo>/dispatches \
+  #      -f event_type=build-android -f client_payload[abi]=aarch64-linux-android
+  # Fresh repos only register a workflow after its first run, so a
+  # workflow_dispatch-only file cannot be dispatched yet; this event does not
+  # need that registration.
+  repository_dispatch:
+    types: [build-android]
 
 env:
+  ABI: ${{ github.event.client_payload.abi || inputs.abi || 'aarch64-linux-android' }}
   RUST_VERSION: "1.75"
   CARGO_NDK_VERSION: "3.1.2"
   FLUTTER_VERSION: "3.24.5"
@@ -34,7 +43,7 @@ jobs:
 
   build-android:
     needs: [generate-bridge]
-    name: build apk ${{ inputs.abi }}
+    name: build apk ${{ env.ABI }}
     runs-on: ubuntu-24.04
     steps:
       - name: Free Disk Space (Ubuntu)
@@ -149,7 +158,7 @@ jobs:
 
       - name: Install vcpkg dependencies
         run: |
-          case "${{ inputs.abi }}" in
+          case "${{ env.ABI }}" in
             aarch64-linux-android) ANDROID_TARGET=arm64-v8a ;;
             armv7-linux-androideabi) ANDROID_TARGET=armeabi-v7a ;;
             x86_64-linux-android) ANDROID_TARGET=x86_64 ;;
@@ -170,36 +179,36 @@ jobs:
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
-          targets: ${{ inputs.abi }}
+          targets: ${{ env.ABI }}
           components: "rustfmt"
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           prefix-key: rustdesk-lib-cache-android
-          key: ${{ inputs.abi }}
+          key: ${{ env.ABI }}
 
       - name: Build rustdesk lib
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          rustup target add ${{ inputs.abi }}
+          rustup target add ${{ env.ABI }}
           cargo install cargo-ndk --version ${{ env.CARGO_NDK_VERSION }} --locked
-          case "${{ inputs.abi }}" in
+          case "${{ env.ABI }}" in
             aarch64-linux-android)
               ./flutter/ndk_arm64.sh
               mkdir -p ./flutter/android/app/src/main/jniLibs/arm64-v8a
-              cp ./target/${{ inputs.abi }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/librustdesk.so
+              cp ./target/${{ env.ABI }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/librustdesk.so
             ;;
             armv7-linux-androideabi)
               ./flutter/ndk_arm.sh
               mkdir -p ./flutter/android/app/src/main/jniLibs/armeabi-v7a
-              cp ./target/${{ inputs.abi }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
+              cp ./target/${{ env.ABI }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
             ;;
             x86_64-linux-android)
               ./flutter/ndk_x64.sh
               mkdir -p ./flutter/android/app/src/main/jniLibs/x86_64
-              cp ./target/${{ inputs.abi }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/x86_64/librustdesk.so
+              cp ./target/${{ env.ABI }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/x86_64/librustdesk.so
             ;;
           esac
 
@@ -211,7 +220,7 @@ jobs:
         run: |
           export PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH
           sed -i "s/org.gradle.jvmargs=-Xmx1024M/org.gradle.jvmargs=-Xmx2g/g" ./flutter/android/gradle.properties
-          case "${{ inputs.abi }}" in
+          case "${{ env.ABI }}" in
             aarch64-linux-android)
               TARGET_PLATFORM=android-arm64
               OUT=app-arm64-v8a-release.apk
@@ -240,7 +249,7 @@ jobs:
       - name: Upload apk
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: apk-${{ inputs.abi }}
+          name: apk-${{ env.ABI }}
           path: app-release.apk
 
       - name: Setup sign tool version variable
@@ -269,5 +278,5 @@ jobs:
         if: env.ANDROID_SIGNING_KEY != null
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: apk-${{ inputs.abi }}-signed
+          name: apk-${{ env.ABI }}-signed
           path: app-release-signed.apk
