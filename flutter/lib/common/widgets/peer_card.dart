@@ -589,9 +589,14 @@ abstract class BasePeerCard extends StatelessWidget {
   @protected
   MenuEntryBase<String> _shutdownAction(BuildContext context) {
     return MenuEntryButton<String>(
-      childBuilder: (TextStyle? style) => Text(
-        translate('Shut down'),
-        style: style,
+      childBuilder: (TextStyle? style) => Row(
+        children: [
+          Icon(Icons.power_settings_new, size: 16, color: MyTheme.accent),
+          Padding(
+            padding: EdgeInsets.only(left: 12),
+            child: Text(translate('Shut down'), style: style),
+          ),
+        ],
       ),
       proc: () async {
         if (!await confirmShutdown(context)) {

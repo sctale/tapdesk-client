@@ -3,7 +3,9 @@
   "conn-type": "outgoing",
   "disable-account": "Y",
   "disable-ab": "Y",
-  "default-settings": {},
+  "default-settings": {
+    "hide-recording-button": "Y"
+  },
   "override-settings": {
     "hide-help-cards": "Y"
   }
