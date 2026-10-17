@@ -17,13 +17,13 @@ import 'package:provider/provider.dart';
 import '../../common.dart';
 import '../../common/widgets/overlay.dart';
 import '../../common/widgets/dialog.dart';
+import '../../common/tapdesk_power.dart';
 import '../../common/widgets/remote_input.dart';
 import '../../models/input_model.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
 import '../../models/shortcut_model.dart';
 import '../../utils/image.dart';
-import '../windows_power.dart';
 import '../widgets/dialog.dart';
 import '../widgets/custom_scale_widget.dart';
 
@@ -128,6 +128,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
       isSharedPassword: widget.isSharedPassword,
       forceRelay: widget.forceRelay,
     );
+    // 设备卡片上的"关机"是先连后发，这里等会话就绪把它发出去。
+    unawaited(maybeRunPendingShutdown(widget.id));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
       gFFI.dialogManager
@@ -676,6 +678,14 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                                   ))
                         ]) +
                   [
+                    // 常驻电源键：Windows 对等端不用进 ⋮ 菜单就能关机。
+                    if (peerSupportsShutdown)
+                      IconButton(
+                        color: Colors.white,
+                        tooltip: translate('Shut down'),
+                        icon: Icon(Icons.power_settings_new),
+                        onPressed: () => shutdownPeer(context),
+                      ),
                     IconButton(
                       color: Colors.white,
                       icon: Icon(Icons.more_vert),
