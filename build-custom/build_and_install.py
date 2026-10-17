@@ -9,7 +9,6 @@ C++ cross toolchain only works on Linux; everything Windows-side happens here.
 """
 
 import argparse
-import datetime
 import json
 import os
 import subprocess
@@ -19,7 +18,11 @@ import time
 REPO = "sctale/tapdesk-client"
 WORKFLOW = "android-client.yml"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_DIR = os.path.join(ROOT, "apks")
+# V-Coding convention: the deliverable APK sits in the project's own root, named
+# <Project>-v<version>.apk (same as TapLedger / TapMate), and gets replaced by
+# the next build of that version.
+OUT_DIR = ROOT
+APK_STEM = "TapDesk"
 POLL_SECONDS = 20
 
 
@@ -97,8 +100,7 @@ def download(run_id, abi):
     if not chosen or not src:
         sys.exit("这次 run 里没有取到 APK 产物")
     version = read_version()
-    stamp = datetime.datetime.now().strftime("%m%d-%H%M")
-    dst = os.path.join(OUT_DIR, "TapDesk-%s-%s-%s.apk" % (version, abi.split("-")[0], stamp))
+    dst = os.path.join(OUT_DIR, "%s-v%s.apk" % (APK_STEM, version))
     os.replace(src, dst)
     signed = chosen.endswith("-signed")
     print("\n产物：%s  (%.1f MB, %s)" % (dst, os.path.getsize(dst) / 1048576,

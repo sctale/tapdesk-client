@@ -68,4 +68,6 @@ build-custom/keys/
 build-custom/out/
 flutter/lib/brand/
 !build-custom/tapdesk-icon-1024.png
-apks/
+
+# deliverable, see V-Coding convention: <Project>-v<version>.apk
+/*.apk
