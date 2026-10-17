@@ -1,6 +1,10 @@
 {
   "app-name": "TapDesk",
   "conn-type": "outgoing",
+  "disable-account": "Y",
+  "disable-ab": "Y",
   "default-settings": {},
-  "override-settings": {}
+  "override-settings": {
+    "hide-help-cards": "Y"
+  }
 }
