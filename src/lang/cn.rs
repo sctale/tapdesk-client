@@ -813,5 +813,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("shortcut-key-not-supported", "“{}” 不能用作快捷键。"),
         ("On", "开"),
         ("Off", "关"),
+        ("Shut down", "关机"),
+        ("Shut down this computer?", "确定关闭这台电脑？未保存的程序会被强制退出。"),
+        ("Shut down command sent", "已发送关机指令"),
     ].iter().cloned().collect();
 }

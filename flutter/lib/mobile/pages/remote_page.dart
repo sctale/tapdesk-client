@@ -23,6 +23,7 @@ import '../../models/model.dart';
 import '../../models/platform_model.dart';
 import '../../models/shortcut_model.dart';
 import '../../utils/image.dart';
+import '../windows_power.dart';
 import '../widgets/dialog.dart';
 import '../widgets/custom_scale_widget.dart';
 
@@ -815,6 +816,11 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
         child: Text(translate('Power')),
         onPressed: () => gFFI.inputModel.onMobilePower(),
       ),
+      if (peerSupportsShutdown)
+        TTextMenu(
+          child: Text(translate('Shut down')),
+          onPressed: () => shutdownPeer(context),
+        ),
     ];
   }
 
