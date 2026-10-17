@@ -47,7 +47,7 @@ def wait_for_run(run_id):
     dots = 0
     while True:
         data = gh_json("run", "view", str(run_id), "--repo", REPO,
-                       "--json", "status", "conclusion")
+                       "--json", "status,conclusion")
         status = data.get("status")
         if status == "completed":
             return data.get("conclusion")
@@ -145,35 +145,43 @@ def main():
     ap.add_argument("--no-install", action="store_true", help="只下载 APK，不装手机")
     ap.add_argument("--abi", default="aarch64-linux-android",
                     choices=["aarch64-linux-android", "armv7-linux-androideabi", "x86_64-linux-android"])
+    ap.add_argument("--run", type=int, help="跳过触发，直接取这次 run 号的产物")
     a = ap.parse_args()
 
     os.chdir(ROOT)
-    if not a.no_push:
-        ahead = run(["git", "rev-list", "--count", "fork/master..master"], check=False)
-        if ahead.isdigit() and int(ahead) > 0:
-            print("\n推送 %s 个本地提交" % ahead)
-            run(["git", "push", "fork", "master"])
-        else:
-            print("\n本地与 fork/master 一致，跳过推送")
+    if a.run:
+        run_id = a.run
+        data = gh_json("run", "view", str(run_id), "--repo", REPO, "--json", "status,conclusion")
+        if data.get("status") != "completed" or data.get("conclusion") != "success":
+            sys.exit("run %s 不是成功状态（%s / %s）" % (run_id, data.get("status"), data.get("conclusion")))
+        print("复用已有构建 run %s" % run_id)
+    else:
+        if not a.no_push:
+            ahead = run(["git", "rev-list", "--count", "fork/master..master"], check=False)
+            if ahead.isdigit() and int(ahead) > 0:
+                print("\n推送 %s 个本地提交" % ahead)
+                run(["git", "push", "fork", "master"])
+            else:
+                print("\n本地与 fork/master 一致，跳过推送")
 
-    before = current_run_id()
-    print("\n触发构建 (%s)" % a.abi)
-    run(["gh", "workflow", "run", WORKFLOW, "--repo", REPO, "--ref", "master", "-f", "abi=" + a.abi])
-    run_id, waited = None, 0
-    while waited < 120:
-        time.sleep(5)
-        waited += 5
-        now = current_run_id()
-        if now and now != before:
-            run_id = now
-            break
-    if not run_id:
-        sys.exit("等不到新的 run，去 Actions 页面看看")
+        before = current_run_id()
+        print("\n触发构建 (%s)" % a.abi)
+        run(["gh", "workflow", "run", WORKFLOW, "--repo", REPO, "--ref", "master", "-f", "abi=" + a.abi])
+        run_id, waited = None, 0
+        while waited < 120:
+            time.sleep(5)
+            waited += 5
+            now = current_run_id()
+            if now and now != before:
+                run_id = now
+                break
+        if not run_id:
+            sys.exit("等不到新的 run，去 Actions 页面看看")
 
-    conclusion = wait_for_run(run_id)
-    if conclusion != "success":
-        report_failure(run_id)
-        sys.exit("\n构建结论：%s" % conclusion)
+        conclusion = wait_for_run(run_id)
+        if conclusion != "success":
+            report_failure(run_id)
+            sys.exit("\n构建结论：%s" % conclusion)
 
     apk = download(run_id, a.abi)
     if not a.no_install:
