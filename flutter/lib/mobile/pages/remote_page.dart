@@ -816,11 +816,6 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
         child: Text(translate('Power')),
         onPressed: () => gFFI.inputModel.onMobilePower(),
       ),
-      if (peerSupportsShutdown)
-        TTextMenu(
-          child: Text(translate('Shut down')),
-          onPressed: () => shutdownPeer(context),
-        ),
     ];
   }
 
@@ -829,6 +824,15 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     final x = 120.0;
     final y = size.height;
     final mobileActionMenus = _getMobileActionMenus();
+    // _getMobileActionMenus() is the "peer is Android" key menu and returns an
+    // empty list for a Windows peer, so the shutdown entry joins the group
+    // here rather than inside that list.
+    if (peerSupportsShutdown) {
+      mobileActionMenus.add(TTextMenu(
+        child: Text(translate('Shut down')),
+        onPressed: () => shutdownPeer(context),
+      ));
+    }
     final menus = toolbarControls(context, id, gFFI);
 
     final List<PopupMenuEntry<int>> more = [
