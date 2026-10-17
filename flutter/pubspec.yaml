@@ -22,7 +22,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # deliberately separate, so bumping this never makes a peer treat us as an old
 # client. The build number maps to versionCode as 2000+n (68 -> 2068), so it
 # keeps climbing from RustDesk's line to stay install-over.
-version: 0.1.0+70
+version: 0.1.0+71
 
 environment:
   sdk: '^3.1.0'
