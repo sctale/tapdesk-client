@@ -109,11 +109,16 @@ def download(run_id, abi):
 
 
 def read_version():
+    """TapDesk's own product version, from the app manifest.
+
+    Deliberately not Cargo.toml: that one is the RustDesk protocol version that
+    peers feature-gate on, and it must keep reading 1.5.x.
+    """
     try:
-        with open(os.path.join(ROOT, "Cargo.toml"), encoding="utf-8") as f:
+        with open(os.path.join(ROOT, "flutter", "pubspec.yaml"), encoding="utf-8") as f:
             for line in f:
-                if line.startswith("version ="):
-                    return line.split('"')[1]
+                if line.startswith("version:"):
+                    return line.split(":", 1)[1].strip().split("+")[0]
     except OSError:
         pass
     return "unknown"

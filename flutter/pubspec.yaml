@@ -16,7 +16,13 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # 1.1.9-1 works for android, but for ios it becomes 1.1.91, need to set it to 1.1.9-a.1 for iOS, will get 1.1.9.1, but iOS store not allow 4 numbers
-version: 1.5.1+69
+# TapDesk's own product version. Android versionName comes from here, and the
+# in-app "Version:" line reads it via PackageInfo. The protocol version the peer
+# sees is Rust's crate version in Cargo.toml (still 1.5.1) -- the two are
+# deliberately separate, so bumping this never makes a peer treat us as an old
+# client. The build number maps to versionCode as 2000+n (68 -> 2068), so it
+# keeps climbing from RustDesk's line to stay install-over.
+version: 0.1.0+70
 
 environment:
   sdk: '^3.1.0'
