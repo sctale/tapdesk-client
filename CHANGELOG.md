@@ -4,6 +4,19 @@
 `flutter/pubspec.yaml` 的 build 号取 `minor*100 + patch`（0.1.1 → 101），
 经 RustDesk 的映射后 versionCode = `2000 + build`（101 → 2101），保证只增不减、可覆盖安装。
 
+## [0.1.4] - 2026-10-18
+
+### 变更
+- **无界面终端改用 id 0**。proto 里 `terminal_id` 的注释就是 "0 for default terminal"，而官方 1.4.5 对 `service_id` 为空的终端连接只给这一个一次性终端；我们自己挑的 99 换不来任何隔离，只是给跨版本行为多加了一个未知量。
+- **超时不再只有一句话**，按实际观察到的阶段分成三种：`Shut down password rejected`（要求记住却没落盘 = 登录没过）、`Shut down not connected`（连 `peer_info` 都没收到 = 连接/验证没成）、`Shut down failed`（登录成了、`OpenTerminal` 也发了但无回音）。后两种附对端版本号，例如"…(RustDesk 1.4.5)"，因为跨版本行为只能靠它对号。
+- 时间线全部 `debugPrint`（`[TapDesk]` / `[TerminalModel]` 前缀），插 USB 用 `adb logcat` 就能直接取到证据，不必靠人复述英文提示。
+
+### 环境查证记录（对端 = 这台开发机，官方 RustDesk 1.4.5）
+- 服务 `RustDesk` 以 **LocalSystem** 运行（`"C:\Program Files\RustDesk\RustDesk.exe" --service`），控制台用户 `haohao` 在 **session 6 / Active**，所以 1.4.5 的 `is_prelogin()` 与 `handle_installed_user()` 这两条拒绝路径按理应放行。
+- Windows build **19045** → ConPTY 可用（1.4.5 的 `portable_pty::win::check_support()` 该过）。
+- 配置里没有 `access-mode` 也没有 `enable-terminal`，`permission()` 落到 `option2bool` → 空值算 Y → 默认放行。
+- 但 1.4.5 的 Windows 终端不是简单管道：`src/server/terminal_helper.rs` 要 `CreateProcessAsUser` 另起 helper 进程 + `create_named_pipe_server`/`wait_for_pipe_connection` + 受限 DACL。这一步是本机这类"策略拦子进程/命名对象"环境最容易断的地方，而服务侧（LocalSystem）日志在 `systemprofile` 下、普通账户读不到，所以只靠读日志无法定位 —— 本版把可见信息全部推到 toast 与 logcat。
+
 ## [0.1.3] - 2026-10-18
 
 ### 修复
