@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common/tapdesk_power.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/main.dart';
@@ -425,6 +426,9 @@ class TerminalModel with ChangeNotifier {
     if (success) {
       _terminalOpened = true;
 
+      // TapDesk: 一键关机的命令在这里灌进去，远端 shell 一起来就执行。
+      unawaited(deliverPendingShutdown(id, sendVirtualKey));
+
       // On reconnect, the server may replay recent output. That replay can include
       // terminal queries like DSR/DA; xterm answers them through onOutput as
       // "^[[1;1R^[[2;2R^[[>0;0;0c", which must not be sent back to the peer.
@@ -626,6 +630,9 @@ class TerminalModel with ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    // TapDesk: 终端页关了而命令没发出去（权限被拒、连不上），绝不能把关机目标
+    // 留着，否则下次对同一台机器开终端会把它莫名其妙关掉。
+    clearPendingShutdown(id);
     terminal.onOutput = null;
     terminal.onResize = null;
     isCtrlLocked = null;

@@ -598,13 +598,7 @@ abstract class BasePeerCard extends StatelessWidget {
           ),
         ],
       ),
-      proc: () async {
-        if (!await confirmShutdown(context)) {
-          return;
-        }
-        armShutdown(peer.id);
-        connectInPeerTab(context, peer, tab);
-      },
+      proc: () => requestShutdown(context, peer.id),
       padding: menuPadding,
       dismissOnClicked: true,
     );

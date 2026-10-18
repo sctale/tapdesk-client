@@ -1,89 +1,57 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../common.dart';
 import '../consts.dart';
-import '../models/platform_model.dart';
 
 /// TapDesk 扩展：一键关闭远程 Windows 电脑。
 ///
-/// 走 host 已有的终端通道（OpenTerminal + TerminalData），所以协议没动、电脑端
-/// 也不需要换成我们的构建，官方 RustDesk host 就能用。代价是它依赖 host 的
-/// `enable-terminal` 权限——option2bool 对 enable- 前缀把空值当 Y，所以默认是
-/// 开的；被显式设成 N 时指令会"本地发送成功、远端静默无效"。
-const int kShutdownTerminalId = 99;
+/// 关机必须走"终端类型"的连接。host 只在登录请求里带了 Terminal 时才起终端服务
+/// （src/server/connection.rs 里 `else if self.terminal` 那支去
+/// init_terminal_service），普通画面会话发 OpenTerminal 会因为 terminal_user_token
+/// 为空被直接拒掉 —— 表现就是按钮按了没反应。所以这里开的是 isTerminal 连接，
+/// 由 TerminalModel 在 shell 起来后把命令灌进去。
+const String kShutdownCommand = 'shutdown /s /f /t 0\r';
 
-/// 只有 Windows 才有 `shutdown` 命令。
 bool peerIsWindows(String platform) => platform == kPeerPlatformWindows;
 
 bool get peerSupportsShutdown => peerIsWindows(gFFI.ffiModel.pi.platform);
 
-// 设备卡片上的"关机"只能先建立会话再发指令，所以点卡片时把目标记下来，等会话
-// 就绪后由 remote_page 消费。记的是 peer id，连错人不会误发。
 String? _pendingShutdownPeerId;
 
-void armShutdown(String peerId) => _pendingShutdownPeerId = peerId;
+/// 会话页/设备卡片共用的一次确认 + 终端连接。
+Future<void> requestShutdown(BuildContext context, String peerId) async {
+  if (!await confirmShutdown(context)) {
+    return;
+  }
+  _pendingShutdownPeerId = peerId;
+  connect(context, peerId, isTerminal: true);
+}
 
-void clearPendingShutdown() => _pendingShutdownPeerId = null;
-
-bool _consumePendingShutdown(String peerId) {
+/// TerminalModel 报告 shell 已就绪时调用；不是本次目标就什么都不做。
+Future<void> deliverPendingShutdown(
+    String peerId, Future<void> Function(String data) send) async {
   if (_pendingShutdownPeerId != peerId) {
-    return false;
+    return;
   }
   _pendingShutdownPeerId = null;
-  return true;
-}
-
-Future<void> _runShutdownCommand() async {
-  final sessionId = gFFI.sessionId;
-  await bind
-      .sessionOpenTerminal(
-        sessionId: sessionId,
-        terminalId: kShutdownTerminalId,
-        rows: 24,
-        cols: 80,
-      )
-      .timeout(const Duration(seconds: 5));
-  // host 收到 OpenTerminal 后异步起 shell，立刻灌输入会被丢掉。
-  await Future<void>.delayed(const Duration(milliseconds: 800));
-  // /f 是必须的：锁屏下没人替未保存的程序点"仍要关闭"。
-  await bind.sessionSendTerminalInput(
-    sessionId: sessionId,
-    terminalId: kShutdownTerminalId,
-    data: 'shutdown /s /f /t 0\r',
-  );
-}
-
-Future<void> _closeTerminalQuietly() async {
   try {
-    await bind
-        .sessionCloseTerminal(
-      sessionId: gFFI.sessionId,
-      terminalId: kShutdownTerminalId,
-    )
-        .timeout(const Duration(seconds: 2));
-  } catch (e) {
-    // The peer is going away or never answered; nothing useful to do.
-  }
-}
-
-Future<void> _sendAndReport() async {
-  try {
-    await _runShutdownCommand();
+    await send(kShutdownCommand);
     showToast(translate('Shut down command sent'));
   } catch (e) {
     showToast('${translate('Failed')}: $e');
-    await _closeTerminalQuietly();
   }
 }
 
-/// 关机前的一次确认。设备卡片和会话工具栏共用这一段文案。
-Future<bool> confirmShutdown(BuildContext context) async =>
-    await _confirmShutdown(context) ?? false;
+/// 终端页关掉而命令没发出去（权限被拒、连不上）时，绝不能把目标留着，
+/// 否则下次对同一台机器开终端会莫名其妙把它关掉。
+void clearPendingShutdown(String peerId) {
+  if (_pendingShutdownPeerId == peerId) {
+    _pendingShutdownPeerId = null;
+  }
+}
 
-Future<bool?> _confirmShutdown(BuildContext context) {
-  return showDialog<bool>(
+Future<bool> confirmShutdown(BuildContext context) async {
+  final ok = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(translate('Shut down')),
@@ -100,30 +68,5 @@ Future<bool?> _confirmShutdown(BuildContext context) {
       ],
     ),
   );
-}
-
-/// 会话内手动触发（工具栏按钮 / 菜单项）：确认后才发。
-Future<void> shutdownPeer(BuildContext context) async {
-  if (!(await _confirmShutdown(context) ?? false)) {
-    return;
-  }
-  await _sendAndReport();
-}
-
-/// 设备卡片触发：那里已经确认过一次，所以这里只等会话就绪就发，不再弹第二次。
-///
-/// pi.platform 要等登录完成才有值，所以轮询而不是在 initState 里直接判断。
-Future<void> maybeRunPendingShutdown(String peerId) async {
-  if (_pendingShutdownPeerId != peerId) {
-    return;
-  }
-  final pi = gFFI.ffiModel.pi;
-  for (var i = 0; i < 20 && pi.platform.isEmpty; i++) {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-  }
-  if (!_consumePendingShutdown(peerId) || !peerIsWindows(pi.platform)) {
-    clearPendingShutdown();
-    return;
-  }
-  await _sendAndReport();
+  return ok ?? false;
 }

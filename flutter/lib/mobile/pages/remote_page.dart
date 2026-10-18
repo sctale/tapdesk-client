@@ -128,8 +128,6 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
       isSharedPassword: widget.isSharedPassword,
       forceRelay: widget.forceRelay,
     );
-    // 设备卡片上的"关机"是先连后发，这里等会话就绪把它发出去。
-    unawaited(maybeRunPendingShutdown(widget.id));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
       gFFI.dialogManager
@@ -658,25 +656,6 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                                     () => _showGestureHelp = !_showGestureHelp),
                               ),
                             ]) +
-                  (isWeb
-                      ? []
-                      : <Widget>[
-                          futureBuilder(
-                              future: gFFI.invokeMethod(
-                                  "get_value", "KEY_IS_SUPPORT_VOICE_CALL"),
-                              hasData: (isSupportVoiceCall) => IconButton(
-                                    color: Colors.white,
-                                    icon: isAndroid && isSupportVoiceCall
-                                        ? SvgPicture.asset('assets/chat.svg',
-                                            colorFilter: ColorFilter.mode(
-                                                Colors.white, BlendMode.srcIn))
-                                        : Icon(Icons.message),
-                                    onPressed: () =>
-                                        isAndroid && isSupportVoiceCall
-                                            ? showChatOptions(widget.id)
-                                            : onPressedTextChat(widget.id),
-                                  ))
-                        ]) +
                   [
                     // 常驻电源键：Windows 对等端不用进 ⋮ 菜单就能关机。
                     if (peerSupportsShutdown)
@@ -684,7 +663,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                         color: Colors.white,
                         tooltip: translate('Shut down'),
                         icon: Icon(Icons.power_settings_new),
-                        onPressed: () => shutdownPeer(context),
+                        onPressed: () => requestShutdown(context, widget.id),
                       ),
                     IconButton(
                       color: Colors.white,
@@ -840,7 +819,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     if (peerSupportsShutdown) {
       mobileActionMenus.add(TTextMenu(
         child: Text(translate('Shut down')),
-        onPressed: () => shutdownPeer(context),
+        onPressed: () => requestShutdown(context, widget.id),
       ));
     }
     final menus = toolbarControls(context, id, gFFI);
