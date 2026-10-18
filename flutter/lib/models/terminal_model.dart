@@ -468,6 +468,8 @@ class TerminalModel with ChangeNotifier {
             }));
       }
     } else {
+      // TapDesk: 无界面的关机会话没有终端可看，host 给的原因只能靠 toast 说出来。
+      reportShutdownFailure(id, terminalId, message);
       _writeToTerminal('Failed to open terminal: $message\r\n');
     }
   }
@@ -623,6 +625,7 @@ class TerminalModel with ChangeNotifier {
 
   void _handleTerminalError(Map<String, dynamic> evt) {
     final String message = evt['message'] ?? 'Unknown error';
+    reportShutdownFailure(id, terminalId, message);
     _writeToTerminal('\r\nTerminal error: $message\r\n');
   }
 

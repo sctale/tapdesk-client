@@ -129,7 +129,16 @@ Future<void> startShutdown(String peerId,
       debugPrint('[TapDesk] $peerId: password not remembered');
     }
   }
-  ffi.ffiModel.updateEventListener(ffi.sessionId, peerId);
+  // 无界面会话没挂 Overlay，host 的登录错误走上游对话框是弹不出来的（只会
+  // Future.error 后静默消失）。这里自己套一层事件回调，把错误原文抓出来。
+  final inner = ffi.ffiModel.startEventListener(ffi.sessionId, peerId);
+  platformFFI.setEventCallback((evt) async {
+    final note = _shutdownNoteFromEvent(evt);
+    if (note != null) {
+      reportShutdownFailure(peerId, kShutdownTerminalId, note);
+    }
+    await inner(evt);
+  });
   final model = TerminalModel(ffi, kShutdownTerminalId);
   ffi.registerTerminalModel(kShutdownTerminalId, model);
   void close() {
@@ -199,6 +208,49 @@ void clearPendingShutdown(String peerId) {
   final target = _pending;
   if (target != null && target.peerId == peerId) {
     _pending = null;
+  }
+}
+
+/// host 明确不让关机时说出来并立刻收尾 —— 无界面会话没有终端区域能显示失败原因，
+/// 让人干等满 20 秒只会更像"按钮没反应"。
+///
+/// [terminalId] 用来过滤：用户自己开的终端（id 0）出错不该把关机目标判定为失败。
+void reportShutdownFailure(String peerId, int terminalId, String reason) {
+  if (terminalId != kShutdownTerminalId) {
+    return;
+  }
+  final target = _pending;
+  if (target == null || target.peerId != peerId) {
+    return;
+  }
+  _pending = null;
+  final note = reason.trim().isEmpty ? 'Unknown error' : reason.trim();
+  debugPrint('[TapDesk] shutdown refused by $peerId: $note');
+  showToast('${translate('Shut down refused')}: $note');
+  target.close();
+}
+
+/// 会话事件里能当作"这次关机被拒"的几条：登录错误原文、要密码、要 Windows 管理员。
+String? _shutdownNoteFromEvent(dynamic evt) {
+  if (evt is! Map) {
+    return null;
+  }
+  if (evt['name'] != 'msgbox') {
+    return null;
+  }
+  final type = (evt['type'] ?? '').toString();
+  final text = (evt['text'] ?? '').toString().trim();
+  switch (type) {
+    case 'error':
+      return text.isEmpty ? 'Login Error' : text;
+    case 'input-password':
+    case 're-input-password':
+      return translate('Password Required');
+    case 'terminal-admin-login':
+    case 'terminal-admin-login-password':
+      return 'terminal needs Windows administrator credentials';
+    default:
+      return null;
   }
 }
 
