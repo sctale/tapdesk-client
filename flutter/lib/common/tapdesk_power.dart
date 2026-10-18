@@ -61,6 +61,16 @@ Future<void> startShutdown(String peerId) async {
   // 刚 start() 时登录还没完成，第一次 OpenTerminal 可能被丢，所以重试几次；
   // openTerminal 内部在已就绪时会直接返回，重复调用是安全的。
   _scheduleOpen(model, 0);
+  // 无界面就不会弹密码框：对端要密码或关了终端权限时永远等不到就绪。必须超时
+  // 清掉目标，否则下次对同一台机器开终端会把它莫名关掉。
+  Timer(const Duration(seconds: 20), () {
+    final stuck = _pending;
+    if (stuck != null && stuck.peerId == peerId) {
+      _pending = null;
+      showToast(translate('Shut down failed'));
+      _close(stuck);
+    }
+  });
 }
 
 void _scheduleOpen(TerminalModel model, int attempt) {
