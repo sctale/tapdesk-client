@@ -663,7 +663,14 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                         color: Colors.white,
                         tooltip: translate('Shut down'),
                         icon: Icon(Icons.power_settings_new),
-                        onPressed: () => requestShutdown(context, widget.id, password: widget.password, isSharedPassword: widget.isSharedPassword),
+                        onPressed: () => requestShutdown(
+                          context,
+                          widget.id,
+                          password: widget.password,
+                          isSharedPassword: widget.isSharedPassword,
+                          // 手机端画面会话和终端会话抢同一个 session id，得先退出画面。
+                          fromSession: true,
+                        ),
                       ),
                     IconButton(
                       color: Colors.white,
@@ -819,7 +826,13 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     if (peerSupportsShutdown) {
       mobileActionMenus.add(TTextMenu(
         child: Text(translate('Shut down')),
-        onPressed: () => requestShutdown(context, widget.id, password: widget.password, isSharedPassword: widget.isSharedPassword),
+        onPressed: () => requestShutdown(
+          context,
+          widget.id,
+          password: widget.password,
+          isSharedPassword: widget.isSharedPassword,
+          fromSession: true,
+        ),
       ));
     }
     final menus = toolbarControls(context, id, gFFI);

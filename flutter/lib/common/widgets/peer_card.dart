@@ -584,8 +584,8 @@ abstract class BasePeerCard extends StatelessWidget {
     );
   }
 
-  /// TapDesk: 一键关机。卡片这里确认一次，记下目标后正常连接，指令由
-  /// 会话页在就绪时发出 -- 设备列表里点一次就能关掉那台电脑。
+  /// TapDesk: 一键关机。卡片这里只需要一次确认（对等端本机没存密码时才多问一句
+  /// 访问密码，并可勾选记住），随后无界面地建终端连接、灌命令、拆连接。
   @protected
   MenuEntryBase<String> _shutdownAction(BuildContext context) {
     return MenuEntryButton<String>(

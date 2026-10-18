@@ -20,6 +20,9 @@ const int kShutdownTerminalId = 99;
 /// /f 必须有：锁屏下没人替未保存的程序点"仍要关闭"。
 const String kShutdownCommand = 'shutdown /s /f /t 0\r';
 
+/// 从发出 OpenTerminal 到拿到 shell 的等待上限，也是"这次没成"的判定窗口。
+const Duration _shutdownWindow = Duration(seconds: 20);
+
 bool peerIsWindows(String platform) => platform == kPeerPlatformWindows;
 
 bool get peerSupportsShutdown => peerIsWindows(gFFI.ffiModel.pi.platform);
@@ -27,35 +30,84 @@ bool get peerSupportsShutdown => peerIsWindows(gFFI.ffiModel.pi.platform);
 class _PendingShutdown {
   final String peerId;
 
-  /// 无界面路径自己建连接，所以要自己拆；退回有界面路径时由页面管生命周期。
-  final VoidCallback? close;
+  /// 无界面路径自己建连接，所以要自己拆。
+  final VoidCallback close;
 
-  _PendingShutdown(this.peerId, {this.close});
+  /// 这次是否要求把密码存进 PeerConfig；用来区分"密码不对"和"终端权限被关"。
+  final bool expectRemember;
+
+  _PendingShutdown(this.peerId,
+      {required this.close, this.expectRemember = false});
 }
 
 _PendingShutdown? _pending;
 
+/// 密码 + 是否记住。只在本次内存里存在，落盘由 Rust 写 PeerConfig（存的是加盐哈希，
+/// 不是明文），我们不自己存任何一份。
+class ShutdownCredential {
+  final String password;
+  final bool remember;
+
+  ShutdownCredential(this.password, this.remember);
+}
+
 /// 设备卡片和会话界面共用：确认一次，然后静默完成。
 ///
-/// [password] / [isSharedPassword] 是调用方手上已有的凭据（卡片上存的共享密码，
-/// 或当前会话进来时用过的密码）。一个都没有时不硬撑无界面 —— 退回会弹密码框的
-/// 正常连接，命令仍会在 shell 就绪时发出，只是会看到一下终端界面。
+/// [password] / [isSharedPassword] 是调用方手上已有的凭据（卡片上的地址簿共享密码，
+/// 或当前会话进来时用过的密码）。对等端本机存过密码时也直接免输。一个都没有时，
+/// 让用户在我们自己的对话框里输一次并勾选记住 —— 之后就是真的一键。
+///
+/// [fromSession] 表示正在看这个对等端的画面。手机端画面会话和终端会话共用同一个
+/// session id（model.dart 的 `_constSessionId`），Rust 侧一个 id 只容一个会话，
+/// 所以必须先把画面会话关掉，终端连接才建得起来。
 Future<void> requestShutdown(BuildContext context, String peerId,
-    {String? password, bool? isSharedPassword}) async {
-  if (!await confirmShutdown(context)) {
+    {String? password,
+    bool? isSharedPassword,
+    bool fromSession = false}) async {
+  if (!context.mounted) {
     return;
   }
+  var typed = (password ?? '').isNotEmpty ? password! : '';
+  var remember = false;
+  final isShared = isSharedPassword == true;
   final hasSaved = await bind.mainPeerHasPassword(id: peerId);
-  if ((password ?? '').isEmpty && !hasSaved) {
-    _pending = _PendingShutdown(peerId);
-    connect(context, peerId, isTerminal: true);
-    return;
+  if (!isShared && typed.isEmpty && !hasSaved) {
+    // 确认和密码合并成一个框：本来就要输密码，就不再叠加一次"确定关机？"。
+    final cred = await askShutdownPassword(context);
+    if (cred == null) {
+      return;
+    }
+    typed = cred.password;
+    remember = cred.remember;
+  } else {
+    if (!await confirmShutdown(context)) {
+      return;
+    }
   }
-  await startShutdown(peerId, password: password, isSharedPassword: isSharedPassword);
+  if (fromSession) {
+    await leaveLiveSession();
+  }
+  await startShutdown(
+    peerId,
+    password: typed.isEmpty ? null : typed,
+    isSharedPassword: isShared ? isSharedPassword : null,
+    remember: remember,
+  );
+}
+
+/// 关掉正在显示的画面会话，腾出手机端唯一的 session id。
+///
+/// `bind.sessionClose` 同步把会话从 Rust 的 SESSIONS 里摘掉（flutter.rs
+/// `remove_session_by_session_id`），所以返回后终端连接就能 add 成功；页面退出交给
+/// `closeConnection()` 异步做，它后续在 dispose 里再关一次是空操作。
+Future<void> leaveLiveSession() async {
+  unawaited(bind.sessionClose(sessionId: gFFI.sessionId));
+  closeConnection();
+  await Future.delayed(const Duration(milliseconds: 300));
 }
 
 Future<void> startShutdown(String peerId,
-    {String? password, bool? isSharedPassword}) async {
+    {String? password, bool? isSharedPassword, bool remember = false}) async {
   if (_pending != null) {
     showToast(translate('Shut down command sent'));
     return;
@@ -67,6 +119,16 @@ Future<void> startShutdown(String peerId,
     forceRelay: null,
     connToken: null,
   );
+  // 预置密码走 host 的 preset 分支（client.rs `handle_hash`），那条分支不会把
+  // remember 打开，于是这里赶在 peer_info 之前替用户补上，让 Rust 把同一份加盐哈希
+  // 写进 PeerConfig。下次点关机就真的一键了。
+  if (remember && (password ?? '').isNotEmpty) {
+    final saved = await bind.sessionRememberPassword(
+        sessionId: ffi.sessionId, id: peerId, remember: true);
+    if (!saved) {
+      debugPrint('[TapDesk] $peerId: password not remembered');
+    }
+  }
   ffi.ffiModel.updateEventListener(ffi.sessionId, peerId);
   final model = TerminalModel(ffi, kShutdownTerminalId);
   ffi.registerTerminalModel(kShutdownTerminalId, model);
@@ -80,32 +142,37 @@ Future<void> startShutdown(String peerId,
     TerminalConnectionManager.releaseConnection(peerId);
   }
 
-  _pending = _PendingShutdown(peerId, close: close);
-  // 刚 start() 时登录还没完成，第一次 OpenTerminal 可能被丢，所以重试几次；
-  // openTerminal 内部在已就绪时会直接返回，重复调用是安全的。
-  _scheduleOpen(model, 0);
-  // 对端要求密码而没带上、或它关了终端权限时，永远等不到就绪。必须超时清掉目标，
-  // 否则下次对同一台机器开终端会把它莫名关掉。
-  Timer(const Duration(seconds: 20), () {
-    final stuck = _pending;
-    if (stuck != null && stuck.peerId == peerId) {
-      _pending = null;
-      showToast(translate('Shut down failed'));
-      stuck.close?.call();
-    }
-  });
-}
-
-void _scheduleOpen(TerminalModel model, int attempt) {
-  if (_pending == null || attempt > 4) {
-    return;
-  }
-  Timer(Duration(milliseconds: attempt == 0 ? 300 : 1200), () {
-    if (_pending == null) {
+  _pending = _PendingShutdown(peerId,
+      close: close, expectRemember: remember && (password ?? '').isNotEmpty);
+  // 登录没完成时 OpenTerminal 会被丢，所以在整个窗口里持续重试；openTerminal 在已
+  // 就绪时直接返回，重复调用是安全的。
+  final deadline = DateTime.now().add(_shutdownWindow);
+  Timer.periodic(const Duration(milliseconds: 700), (t) {
+    final target = _pending;
+    if (target == null ||
+        target.peerId != peerId ||
+        DateTime.now().isAfter(deadline)) {
+      t.cancel();
       return;
     }
     unawaited(model.openTerminal());
-    _scheduleOpen(model, attempt + 1);
+  });
+  // 对端要求密码而没带上、密码不对、或它关了终端权限时，永远等不到就绪。必须超时清掉
+  // 目标，否则下次对同一台机器开终端会把它莫名关掉。
+  Timer(_shutdownWindow, () async {
+    final stuck = _pending;
+    if (stuck == null || stuck.peerId != peerId) {
+      return;
+    }
+    _pending = null;
+    // 要求记住却始终没落盘 = 登录没过去，问题在密码；否则是对端不让用终端。
+    var blamedPassword = false;
+    if (stuck.expectRemember) {
+      blamedPassword = !await bind.mainPeerHasPassword(id: peerId);
+    }
+    showToast(translate(
+        blamedPassword ? 'Shut down password rejected' : 'Shut down failed'));
+    stuck.close();
   });
 }
 
@@ -124,7 +191,7 @@ Future<void> deliverPendingShutdown(
     showToast('${translate('Failed')}: $e');
   }
   // 等指令真的发出去再拆连接，太早关会把命令一起带走。
-  Timer(const Duration(seconds: 3), () => target.close?.call());
+  Timer(const Duration(seconds: 3), () => target.close());
 }
 
 /// 终端连接没建起来就被关闭时清掉目标，避免留下一个待执行的关机。
@@ -154,4 +221,63 @@ Future<bool> confirmShutdown(BuildContext context) async {
     ),
   );
   return ok ?? false;
+}
+
+/// 确认 + 输入访问密码，一个框办完。
+///
+/// 不用上游那个密码框：它挂在会话自己的 dialogManager 上，而无界面会话没有 Overlay
+/// （common.dart `OverlayDialogManager.show` 在 `_overlayKeyState.state` 为空时直接
+/// 抛错），而且文案是"验证 RustDesk 密码"，白标包里不该出现。
+Future<ShutdownCredential?> askShutdownPassword(BuildContext context) async {
+  final controller = TextEditingController();
+  var remember = true;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        title: Text(translate('Password Required')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(translate('Shut down needs the access password')),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              autofocus: true,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => Navigator.of(dialogContext).pop(true),
+              decoration: InputDecoration(labelText: translate('Password')),
+            ),
+            CheckboxListTile(
+              contentPadding: const EdgeInsets.all(0),
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text(translate('Remember password')),
+              value: remember,
+              onChanged: (v) => setState(() => remember = v ?? false),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(translate('Cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(translate('Shut down')),
+          ),
+        ],
+      ),
+    ),
+  );
+  final password = controller.text.trim();
+  controller.dispose();
+  if (ok != true || password.isEmpty) {
+    return null;
+  }
+  return ShutdownCredential(password, remember);
 }
