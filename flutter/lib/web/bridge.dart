@@ -186,6 +186,14 @@ class RustdeskImpl {
         () => js.context.callMethod('getByName', ['remember']) == 'true');
   }
 
+  Future<bool> sessionRememberPassword(
+      {required UuidValue sessionId,
+      required String id,
+      required bool remember,
+      dynamic hint}) {
+    throw UnimplementedError("sessionRememberPassword");
+  }
+
   Future<bool?> sessionGetToggleOption(
       {required UuidValue sessionId, required String arg, dynamic hint}) {
     return Future(

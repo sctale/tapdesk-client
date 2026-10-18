@@ -519,6 +519,23 @@ impl<T: InvokeUiSession> Session<T> {
         self.lc.read().unwrap().remember
     }
 
+    /// TapDesk: a one-tap shutdown starts its session with a password the user just
+    /// typed, which `handle_hash` consumes as the preset password and never marks as
+    /// remembered — so the next shutdown would ask again. Setting the flag before the
+    /// peer's `PeerInfo` arrives lets the existing `handle_peer_info` write the same
+    /// salted hash into `PeerConfig`, which is the only place passwords are kept.
+    pub fn remember_password(&self, id: &str, remember: bool) -> bool {
+        let mut lc = self.lc.write().unwrap();
+        // Android and iOS share one session id between connections, so the id carried
+        // by the session is the only proof this is the peer the user agreed about.
+        if lc.get_id() != id {
+            log::warn!("remember_password ignored: session is not peer {id}");
+            return false;
+        }
+        lc.remember = remember;
+        true
+    }
+
     #[cfg(not(feature = "flutter"))]
     pub fn set_write_override(
         &mut self,

@@ -246,6 +246,18 @@ pub fn session_get_remember(session_id: SessionID) -> Option<bool> {
     }
 }
 
+/// TapDesk: remember the password a live session is already using, so it is stored in
+/// `PeerConfig` and a later headless connect does not have to ask for it again.
+/// Returns false when the session is gone or belongs to another peer — the caller then
+/// just asks again next time, which is the safe default.
+pub fn session_remember_password(session_id: SessionID, id: String, remember: bool) -> bool {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.remember_password(&id, remember)
+    } else {
+        false
+    }
+}
+
 pub fn session_get_toggle_option(session_id: SessionID, arg: String) -> Option<bool> {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         Some(session.get_toggle_option(arg))
