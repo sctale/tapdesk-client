@@ -663,7 +663,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                         color: Colors.white,
                         tooltip: translate('Shut down'),
                         icon: Icon(Icons.power_settings_new),
-                        onPressed: () => requestShutdown(context, widget.id),
+                        onPressed: () => requestShutdown(context, widget.id, password: widget.password, isSharedPassword: widget.isSharedPassword),
                       ),
                     IconButton(
                       color: Colors.white,
@@ -819,7 +819,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     if (peerSupportsShutdown) {
       mobileActionMenus.add(TTextMenu(
         child: Text(translate('Shut down')),
-        onPressed: () => requestShutdown(context, widget.id),
+        onPressed: () => requestShutdown(context, widget.id, password: widget.password, isSharedPassword: widget.isSharedPassword),
       ));
     }
     final menus = toolbarControls(context, id, gFFI);

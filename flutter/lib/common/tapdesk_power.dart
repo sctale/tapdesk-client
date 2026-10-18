@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../common.dart';
 import '../consts.dart';
 import '../desktop/pages/terminal_connection_manager.dart';
-import '../models/model.dart';
+import '../models/platform_model.dart';
 import '../models/terminal_model.dart';
 
 /// TapDesk 扩展：一键关闭远程 Windows 电脑，全程不出现终端界面。
@@ -13,8 +13,8 @@ import '../models/terminal_model.dart';
 /// host 只在登录请求带了 Terminal 时才起终端服务
 /// （src/server/connection.rs:2200 `else if self.terminal` -> init_terminal_service），
 /// 普通画面会话发 OpenTerminal 会因 terminal_user_token 为空被丢弃。所以关机必须
-/// 走终端类型的连接；但终端页只是渲染 xterm，命令投递本身不需要界面，于是这里
-/// 直接复用 TerminalModel 无界面地连上、灌命令、拆连接。
+/// 走终端类型的连接；但终端页只是渲染 xterm，投递命令本身不需要界面，于是这里
+/// 无界面地复用 TerminalModel：连上、灌命令、拆连接。
 const int kShutdownTerminalId = 99;
 
 /// /f 必须有：锁屏下没人替未保存的程序点"仍要关闭"。
@@ -26,49 +26,72 @@ bool get peerSupportsShutdown => peerIsWindows(gFFI.ffiModel.pi.platform);
 
 class _PendingShutdown {
   final String peerId;
-  final FFI ffi;
-  final TerminalModel model;
 
-  _PendingShutdown(this.peerId, this.ffi, this.model);
+  /// 无界面路径自己建连接，所以要自己拆；退回有界面路径时由页面管生命周期。
+  final VoidCallback? close;
+
+  _PendingShutdown(this.peerId, {this.close});
 }
 
 _PendingShutdown? _pending;
 
 /// 设备卡片和会话界面共用：确认一次，然后静默完成。
-Future<void> requestShutdown(BuildContext context, String peerId) async {
+///
+/// [password] / [isSharedPassword] 是调用方手上已有的凭据（卡片上存的共享密码，
+/// 或当前会话进来时用过的密码）。一个都没有时不硬撑无界面 —— 退回会弹密码框的
+/// 正常连接，命令仍会在 shell 就绪时发出，只是会看到一下终端界面。
+Future<void> requestShutdown(BuildContext context, String peerId,
+    {String? password, bool? isSharedPassword}) async {
   if (!await confirmShutdown(context)) {
     return;
   }
-  await startShutdown(peerId);
+  final hasSaved = await bind.mainPeerHasPassword(id: peerId);
+  if ((password ?? '').isEmpty && !hasSaved) {
+    _pending = _PendingShutdown(peerId);
+    connect(context, peerId, isTerminal: true);
+    return;
+  }
+  await startShutdown(peerId, password: password, isSharedPassword: isSharedPassword);
 }
 
-Future<void> startShutdown(String peerId) async {
+Future<void> startShutdown(String peerId,
+    {String? password, bool? isSharedPassword}) async {
   if (_pending != null) {
     showToast(translate('Shut down command sent'));
     return;
   }
   final ffi = TerminalConnectionManager.getConnection(
     peerId: peerId,
-    password: null,
-    isSharedPassword: null,
+    password: password,
+    isSharedPassword: isSharedPassword,
     forceRelay: null,
     connToken: null,
   );
   ffi.ffiModel.updateEventListener(ffi.sessionId, peerId);
   final model = TerminalModel(ffi, kShutdownTerminalId);
   ffi.registerTerminalModel(kShutdownTerminalId, model);
-  _pending = _PendingShutdown(peerId, ffi, model);
+  void close() {
+    try {
+      ffi.unregisterTerminalModel(kShutdownTerminalId);
+      model.dispose();
+    } catch (e) {
+      debugPrint('[TapDesk] teardown failed: $e');
+    }
+    TerminalConnectionManager.releaseConnection(peerId);
+  }
+
+  _pending = _PendingShutdown(peerId, close: close);
   // 刚 start() 时登录还没完成，第一次 OpenTerminal 可能被丢，所以重试几次；
   // openTerminal 内部在已就绪时会直接返回，重复调用是安全的。
   _scheduleOpen(model, 0);
-  // 无界面就不会弹密码框：对端要密码或关了终端权限时永远等不到就绪。必须超时
-  // 清掉目标，否则下次对同一台机器开终端会把它莫名关掉。
+  // 对端要求密码而没带上、或它关了终端权限时，永远等不到就绪。必须超时清掉目标，
+  // 否则下次对同一台机器开终端会把它莫名关掉。
   Timer(const Duration(seconds: 20), () {
     final stuck = _pending;
     if (stuck != null && stuck.peerId == peerId) {
       _pending = null;
       showToast(translate('Shut down failed'));
-      _close(stuck);
+      stuck.close?.call();
     }
   });
 }
@@ -100,22 +123,11 @@ Future<void> deliverPendingShutdown(
   } catch (e) {
     showToast('${translate('Failed')}: $e');
   }
-  // 等指令发出去再拆连接，太早关会把命令一起带走。
-  Timer(const Duration(seconds: 3), () => _close(target));
+  // 等指令真的发出去再拆连接，太早关会把命令一起带走。
+  Timer(const Duration(seconds: 3), () => target.close?.call());
 }
 
-void _close(_PendingShutdown target) {
-  try {
-    target.ffi.unregisterTerminalModel(kShutdownTerminalId);
-    target.model.dispose();
-  } catch (e) {
-    debugPrint('[TapDesk] teardown failed: $e');
-  }
-  TerminalConnectionManager.releaseConnection(target.peerId);
-}
-
-/// 终端连接没建起来（权限被拒、连不上）时绝不能把目标留着，否则下次对同一台
-/// 机器开终端会把它莫名其妙关掉。
+/// 终端连接没建起来就被关闭时清掉目标，避免留下一个待执行的关机。
 void clearPendingShutdown(String peerId) {
   final target = _pending;
   if (target != null && target.peerId == peerId) {

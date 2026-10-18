@@ -598,7 +598,9 @@ abstract class BasePeerCard extends StatelessWidget {
           ),
         ],
       ),
-      proc: () => requestShutdown(context, peer.id),
+      proc: () => requestShutdown(context, peer.id,
+          password: peer.password.isNotEmpty ? peer.password : null,
+          isSharedPassword: peer.password.isNotEmpty ? true : null),
       padding: menuPadding,
       dismissOnClicked: true,
     );
