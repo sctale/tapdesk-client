@@ -15,7 +15,10 @@ import '../models/terminal_model.dart';
 /// 普通画面会话发 OpenTerminal 会因 terminal_user_token 为空被丢弃。所以关机必须
 /// 走终端类型的连接；但终端页只是渲染 xterm，投递命令本身不需要界面，于是这里
 /// 无界面地复用 TerminalModel：连上、灌命令、拆连接。
-const int kShutdownTerminalId = 99;
+/// host 端的默认终端。proto 里 `terminal_id` 注释是 "0 for default terminal"，
+/// 而官方 1.4.5 的 host 只给 `service_id` 为空的连接走"一次性终端"，那个终端就是 id 0；
+/// 我们自己编一个 99 没有任何好处，只会让跨版本行为多一个未知量。
+const int kShutdownTerminalId = 0;
 
 /// /f 必须有：锁屏下没人替未保存的程序点"仍要关闭"。
 const String kShutdownCommand = 'shutdown /s /f /t 0\r';
@@ -174,13 +177,23 @@ Future<void> startShutdown(String peerId,
       return;
     }
     _pending = null;
-    // 要求记住却始终没落盘 = 登录没过去，问题在密码；否则是对端不让用终端。
-    var blamedPassword = false;
-    if (stuck.expectRemember) {
-      blamedPassword = !await bind.mainPeerHasPassword(id: peerId);
+    // "没等到"有三种，得分开说：登录没过（密码不对）、连上了但 peer_info 都没来
+    // （网络/验证），以及登录成功、OpenTerminal 也发了却毫无回音（对端的终端跑不
+    // 起来 —— 官方 1.4.5 在 Windows 上要另起 helper 进程 + 命名管道，最容易在这一步
+    // 被安全环境拦掉）。
+    final version = ffi.ffiModel.pi.version;
+    final loggedIn = version.isNotEmpty;
+    final String key;
+    if (stuck.expectRemember && !await bind.mainPeerHasPassword(id: peerId)) {
+      key = 'Shut down password rejected';
+    } else if (!loggedIn) {
+      key = 'Shut down not connected';
+    } else {
+      key = 'Shut down failed';
     }
-    showToast(translate(
-        blamedPassword ? 'Shut down password rejected' : 'Shut down failed'));
+    debugPrint('[TapDesk] shutdown timed out: peer=$peerId loggedIn=$loggedIn '
+        'version="$version" reason=$key');
+    showToast(translate(key) + (loggedIn ? ' (RustDesk $version)' : ''));
     stuck.close();
   });
 }

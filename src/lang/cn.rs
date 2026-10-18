@@ -818,6 +818,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Shut down command sent", "已发送关机指令"),
         ("Shut down failed", "20 秒内没等到那台电脑的终端响应，请再试一次"),
         ("Shut down refused", "关机被这台电脑拒绝"),
+        ("Shut down not connected", "没能连上那台电脑，或者验证没通过"),
         ("Shut down needs the access password", "关闭这台电脑需要它的访问密码"),
         ("Shut down password rejected", "关机指令未发出：那台电脑不接受这个密码"),
     ].iter().cloned().collect();
