@@ -618,14 +618,6 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                       onPressed: () {
                         clientClose(sessionId, gFFI);
                       },
-                    ),
-                    IconButton(
-                      color: Colors.white,
-                      icon: Icon(Icons.tv),
-                      onPressed: () {
-                        setState(() => _showEdit = false);
-                        showOptions(context, widget.id, gFFI.dialogManager);
-                      },
                     )
                   ] +
                   (isWebDesktop || ffiModel.viewOnly || !ffiModel.keyboard
@@ -835,6 +827,13 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     final x = 120.0;
     final y = size.height;
     final mobileActionMenus = _getMobileActionMenus();
+    // TapDesk：底部栏一行放不下，"显示设置"（原来那个 📺 图标）挪进这里。
+    // 必须加在这一层而不是 _getMobileActionMenus() 里 —— 那个函数开头就对
+    // "对端不是安卓"直接 return []，Windows 对等端永远拿不到它的内容。
+    mobileActionMenus.add(TTextMenu(
+      child: Text(translate('Display settings')),
+      onPressed: () => showOptions(context, widget.id, gFFI.dialogManager),
+    ));
     // 这里不要再加"插入 Ctrl+Alt+Del"：下面 toolbarControls() 已经带了上游那一条
     // （Windows 对等端且 host 自报 sasEnabled 时出现），加出来是两行同名菜单。
     final menus = toolbarControls(context, id, gFFI)

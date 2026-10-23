@@ -818,6 +818,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Shut down command sent", ""),
         ("Shut down failed", ""),
         ("Shut down refused", ""),
+        ("Display settings", ""),
         ("Shut down not connected", ""),
         ("Shut down needs the access password", ""),
         ("Shut down password rejected", ""),
