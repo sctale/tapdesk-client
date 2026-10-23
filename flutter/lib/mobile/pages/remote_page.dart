@@ -667,6 +667,16 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                         icon: Icon(Icons.power_settings_new),
                         onPressed: () => shutdownViaCtrlAltDel(),
                       ),
+                    // 常驻锁定键：上游把"锁定远程电脑"藏在 ⋮ 里，这里提到电源键右边，
+                    // 用的是同一个 bind.sessionLockScreen，白名单里就不再重复出现。
+                    if (!ffiModel.viewOnly && ffiModel.keyboard)
+                      IconButton(
+                        color: Colors.white,
+                        tooltip: translate('Insert Lock'),
+                        icon: Icon(Icons.lock_outline),
+                        onPressed: () =>
+                            bind.sessionLockScreen(sessionId: sessionId),
+                      ),
                     IconButton(
                       color: Colors.white,
                       icon: Icon(Icons.more_vert),
@@ -810,6 +820,16 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     ];
   }
 
+  /// TapDesk 精简：⋮ 菜单只留这两项。
+  /// 其余上游项（请求管理员提权、系统账户密码、发送剪贴板按键、重置画布、备注、
+  /// 查看摄像头、终端、TCP 隧道、切换角色、截图、复制指纹、光标跟随、画质/缩放…）
+  /// 要么依赖对端远程终端（官方 1.4.5 起不来），要么是桌面专属，手机上都是噪音。
+  /// 锁定和关机已经上到常驻底部栏，这里不再重复。
+  static const _tapdeskMenuWhitelist = <String>{
+    kShortcutActionRefresh,
+    kShortcutActionSendCtrlAltDel,
+  };
+
   void showActions(String id) async {
     final size = MediaQuery.of(context).size;
     final x = 120.0;
@@ -817,7 +837,9 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     final mobileActionMenus = _getMobileActionMenus();
     // 这里不要再加"插入 Ctrl+Alt+Del"：下面 toolbarControls() 已经带了上游那一条
     // （Windows 对等端且 host 自报 sasEnabled 时出现），加出来是两行同名菜单。
-    final menus = toolbarControls(context, id, gFFI);
+    final menus = toolbarControls(context, id, gFFI)
+      ..removeWhere((m) =>
+          m.actionId == null || !_tapdeskMenuWhitelist.contains(m.actionId));
 
     final List<PopupMenuEntry<int>> more = [
       ...mobileActionMenus
