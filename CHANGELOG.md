@@ -4,6 +4,18 @@
 `flutter/pubspec.yaml` 的 build 号取 `minor*100 + patch`（0.1.1 → 101），
 经 RustDesk 的映射后 versionCode = `2000 + build`（101 → 2101），保证只增不减、可覆盖安装。
 
+## [0.1.6] - 2026-10-23
+
+按"只需要 ①看画面并操作 ②最近列表连接/重命名/移除 ③填自建服务器 ④电源键"这一份需求做的第一轮简化（A 档：纯入口裁剪，不碰协议）。
+
+### 新增
+- **底部栏常驻"锁定远程电脑"键**，就在电源键右边，调上游同一个 `bind.sessionLockScreen`。原来这个动作埋在 ⋮ 里，出门在外想锁一下屏幕要走两步。
+
+### 变更
+- **设备卡片菜单只剩 连接 / 重命名 / 忘记已存密码 / 收藏 / 移除**：删掉 传输文件、查看摄像头、终端、以管理员身份运行终端、强制始终中继 五项（5 个卡片变体各一份），对应的 builder 一并删掉，不留死代码。终端类入口本来在官方 1.4.5 对端上就起不来，留着只会误导。
+- **会话 ⋮ 菜单改成白名单**：只留 `刷新` 与 `插入 Ctrl + Alt + Del`（按 `actionId` 过滤，不改上游 `toolbarControls()` 本身，桌面代码零改动）。请求管理员提权、系统账户密码、发送剪贴板按键、重置画布、备注、TCP 隧道、切换角色、截图、复制指纹、显示/跟随远端光标 等都不再出现。
+- **权限再收一条**：manifest 去掉 `RECORD_AUDIO`，`MainService` 的 `foregroundServiceType` 从 `specialUse|mediaProjection|microphone` 收窄为 `specialUse`。手机侧唯一会用麦克风的是聊天/语音通话，而那个入口 0.1.1 就删了；`AudioRecordHandle.createAudioRecorder()` 本来就先 `checkSelfPermission` 再优雅返回 false，所以不会崩。
+
 ## [0.1.5] - 2026-10-23
 
 ### 变更
