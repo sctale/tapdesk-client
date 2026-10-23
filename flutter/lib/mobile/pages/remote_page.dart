@@ -815,15 +815,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     final x = 120.0;
     final y = size.height;
     final mobileActionMenus = _getMobileActionMenus();
-    // _getMobileActionMenus() is the "peer is Android" key menu and returns an
-    // empty list for a Windows peer, so this entry joins the group here rather
-    // than inside that list.
-    if (peerSupportsShutdown) {
-      mobileActionMenus.add(TTextMenu(
-        child: Text(translate('Insert Ctrl + Alt + Del')),
-        onPressed: () => shutdownViaCtrlAltDel(),
-      ));
-    }
+    // 这里不要再加"插入 Ctrl+Alt+Del"：下面 toolbarControls() 已经带了上游那一条
+    // （Windows 对等端且 host 自报 sasEnabled 时出现），加出来是两行同名菜单。
     final menus = toolbarControls(context, id, gFFI);
 
     final List<PopupMenuEntry<int>> more = [
