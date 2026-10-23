@@ -1,5 +1,8 @@
 # RustDesk Guide
 
+> 本仓库是 **TapDesk**（RustDesk 1.5.1 的 fork，只做 Android 主控端），不是 RustDesk 本体。
+> 项目定位、与上游的差别、构建只能走 CI 这件事请看 [README.md](README.md)；本文件以下部分是上游写的代码导览，目录结构基本仍适用。
+
 ## Project Layout
 
 ### Directory Structure
