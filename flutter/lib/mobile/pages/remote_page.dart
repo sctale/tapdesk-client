@@ -582,7 +582,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   }
 
   bool _handleLocalKeyEvent(KeyEvent event) => handleMobileLocalKeyEvent(event,
-      remoteFocused: _physicalFocusNode.hasPrimaryFocus, inputModel: inputModel);
+      remoteFocused: _physicalFocusNode.hasPrimaryFocus,
+      inputModel: inputModel);
 
   Widget getRawPointerAndKeyBody(Widget child) {
     final ffiModel = Provider.of<FfiModel>(context);
@@ -657,20 +658,14 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                               ),
                             ]) +
                   [
-                    // 常驻电源键：Windows 对等端不用进 ⋮ 菜单就能关机。
+                    // 常驻电源键：Windows 对等端一键插入 Ctrl+Alt+Del，安全屏幕右下角
+                    // 就是电源按钮 —— 不依赖对端的远程终端。
                     if (peerSupportsShutdown)
                       IconButton(
                         color: Colors.white,
-                        tooltip: translate('Shut down'),
+                        tooltip: translate('Insert Ctrl + Alt + Del'),
                         icon: Icon(Icons.power_settings_new),
-                        onPressed: () => requestShutdown(
-                          context,
-                          widget.id,
-                          password: widget.password,
-                          isSharedPassword: widget.isSharedPassword,
-                          // 手机端画面会话和终端会话抢同一个 session id，得先退出画面。
-                          fromSession: true,
-                        ),
+                        onPressed: () => shutdownViaCtrlAltDel(),
                       ),
                     IconButton(
                       color: Colors.white,
@@ -821,18 +816,12 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     final y = size.height;
     final mobileActionMenus = _getMobileActionMenus();
     // _getMobileActionMenus() is the "peer is Android" key menu and returns an
-    // empty list for a Windows peer, so the shutdown entry joins the group
-    // here rather than inside that list.
+    // empty list for a Windows peer, so this entry joins the group here rather
+    // than inside that list.
     if (peerSupportsShutdown) {
       mobileActionMenus.add(TTextMenu(
-        child: Text(translate('Shut down')),
-        onPressed: () => requestShutdown(
-          context,
-          widget.id,
-          password: widget.password,
-          isSharedPassword: widget.isSharedPassword,
-          fromSession: true,
-        ),
+        child: Text(translate('Insert Ctrl + Alt + Del')),
+        onPressed: () => shutdownViaCtrlAltDel(),
       ));
     }
     final menus = toolbarControls(context, id, gFFI);

@@ -1,7 +1,6 @@
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_hbb/common/tapdesk_power.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
@@ -584,28 +583,6 @@ abstract class BasePeerCard extends StatelessWidget {
     );
   }
 
-  /// TapDesk: 一键关机。卡片这里只需要一次确认（对等端本机没存密码时才多问一句
-  /// 访问密码，并可勾选记住），随后无界面地建终端连接、灌命令、拆连接。
-  @protected
-  MenuEntryBase<String> _shutdownAction(BuildContext context) {
-    return MenuEntryButton<String>(
-      childBuilder: (TextStyle? style) => Row(
-        children: [
-          Icon(Icons.power_settings_new, size: 16, color: MyTheme.accent),
-          Padding(
-            padding: EdgeInsets.only(left: 12),
-            child: Text(translate('Shut down'), style: style),
-          ),
-        ],
-      ),
-      proc: () => requestShutdown(context, peer.id,
-          password: peer.password.isNotEmpty ? peer.password : null,
-          isSharedPassword: peer.password.isNotEmpty ? true : null),
-      padding: menuPadding,
-      dismissOnClicked: true,
-    );
-  }
-
   @protected
   MenuEntryBase<String> _transferFileAction(BuildContext context) {
     return _connectCommonAction(
@@ -991,7 +968,6 @@ class RecentPeerCard extends BasePeerCard {
       BuildContext context) async {
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
-      if (peer.platform == kPeerPlatformWindows) _shutdownAction(context),
       _transferFileAction(context),
       _viewCameraAction(context),
       _terminalAction(context),
@@ -1057,7 +1033,6 @@ class FavoritePeerCard extends BasePeerCard {
       BuildContext context) async {
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
-      if (peer.platform == kPeerPlatformWindows) _shutdownAction(context),
       _transferFileAction(context),
       _viewCameraAction(context),
       _terminalAction(context),
@@ -1118,7 +1093,6 @@ class DiscoveredPeerCard extends BasePeerCard {
       BuildContext context) async {
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
-      if (peer.platform == kPeerPlatformWindows) _shutdownAction(context),
       _transferFileAction(context),
       _viewCameraAction(context),
       _terminalAction(context),
@@ -1178,7 +1152,6 @@ class AddressBookPeerCard extends BasePeerCard {
       BuildContext context) async {
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
-      if (peer.platform == kPeerPlatformWindows) _shutdownAction(context),
       _transferFileAction(context),
       _viewCameraAction(context),
       _terminalAction(context),
@@ -1336,7 +1309,6 @@ class MyGroupPeerCard extends BasePeerCard {
       BuildContext context) async {
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
-      if (peer.platform == kPeerPlatformWindows) _shutdownAction(context),
       _transferFileAction(context),
       _viewCameraAction(context),
       _terminalAction(context),

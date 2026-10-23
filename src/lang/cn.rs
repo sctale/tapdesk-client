@@ -821,5 +821,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Shut down not connected", "没能连上那台电脑，或者验证没通过"),
         ("Shut down needs the access password", "关闭这台电脑需要它的访问密码"),
         ("Shut down password rejected", "关机指令未发出：那台电脑不接受这个密码"),
+        ("Shut down via ctrl alt del tip", "已插入 Ctrl+Alt+Del：在出现的安全屏幕右下角点电源按钮，再选关机"),
+        ("Ctrl alt del ignored without administrator", "已插入 Ctrl+Alt+Del，但那台电脑没有以管理员/服务身份运行，系统可能会忽略它"),
     ].iter().cloned().collect();
 }

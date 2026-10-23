@@ -821,5 +821,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Shut down not connected", ""),
         ("Shut down needs the access password", ""),
         ("Shut down password rejected", ""),
+        ("Shut down via ctrl alt del tip", ""),
+        ("Ctrl alt del ignored without administrator", ""),
     ].iter().cloned().collect();
 }

@@ -30,6 +30,26 @@ bool peerIsWindows(String platform) => platform == kPeerPlatformWindows;
 
 bool get peerSupportsShutdown => peerIsWindows(gFFI.ffiModel.pi.platform);
 
+/// 电源键现在做的事：插入 Ctrl+Alt+Del（Windows 安全屏幕）。
+///
+/// 为什么不发 `shutdown` 命令：那要 host 起远程终端，而 1.4.5 的 Windows 终端要
+/// `CreateProcessAsUser` 另起 helper 进程 + 受限 DACL 命名管道（`terminal_helper.rs`），
+/// 我们在这台机器上没能把它跑起来。安全序列只是一条普通按键事件
+/// （`ControlKey::CtrlAltDel` → host 侧 `is_function_key()` 调 `send_sas()`），
+/// 1.4.5 与 1.5.1 都有，跟画面操作走同一条通道，可靠性完全不同。
+///
+/// 到了安全屏幕上，右下角有电源按钮，点它就是关机/重启 —— 锁屏状态也能用。
+Future<void> shutdownViaCtrlAltDel() async {
+  final sessionId = gFFI.sessionId;
+  final sasEnabled = gFFI.ffiModel.pi.sasEnabled;
+  debugPrint('[TapDesk] insert Ctrl+Alt+Del, peer sasEnabled=$sasEnabled');
+  bind.sessionCtrlAltDel(sessionId: sessionId);
+  // host 只有在提权/服务身份运行时才报 sasEnabled=true；它是自己声明的，不是我们猜的。
+  showToast(translate(sasEnabled
+      ? 'Shut down via ctrl alt del tip'
+      : 'Ctrl alt del ignored without administrator'));
+}
+
 class _PendingShutdown {
   final String peerId;
 
@@ -55,6 +75,10 @@ class ShutdownCredential {
 }
 
 /// 设备卡片和会话界面共用：确认一次，然后静默完成。
+///
+/// 目前**没有入口调它**：对端（官方 1.4.5）的远程终端起不来，电源键改走
+/// [shutdownViaCtrlAltDel] 说的安全序列。等对端升到 1.5.1 或终端问题定位后，把卡片/
+/// 会话里的调用换回来即可，这条路径本身已经验证到"能连上、能登录"。
 ///
 /// [password] / [isSharedPassword] 是调用方手上已有的凭据（卡片上的地址簿共享密码，
 /// 或当前会话进来时用过的密码）。对等端本机存过密码时也直接免输。一个都没有时，
