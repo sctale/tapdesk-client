@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../common.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
+import '../../common/tapdesk_tokens.dart';
 import '../../consts.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
@@ -717,6 +718,25 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
     final hideSecuritySettings =
         bind.mainGetBuildinOption(key: kOptionHideSecuritySetting) == 'Y';
     final settings = SettingsList(
+      // TapDesk：给 settings_ui 一套显式主题，不用它的默认色，否则和其余界面对不上。
+      lightTheme: const SettingsThemeData(
+        settingsListBackground: Color(0xFFF4F5F7),
+        settingsSectionBackground: Colors.white,
+        dividerColor: TapDeskTokens.lineLight,
+        leadingIconsColor: TapDeskTokens.accent,
+        titleTextColor: TapDeskTokens.ink,
+        settingsTileTextColor: TapDeskTokens.ink,
+        tileDescriptionTextColor: TapDeskTokens.inkSecondary,
+      ),
+      darkTheme: const SettingsThemeData(
+        settingsListBackground: Color(0xFF15171C),
+        settingsSectionBackground: Color(0xFF1B1D23),
+        dividerColor: TapDeskTokens.lineDark,
+        leadingIconsColor: Color(0xFF4C9BFF),
+        titleTextColor: Color(0xFFEDEFF3),
+        settingsTileTextColor: Color(0xFFEDEFF3),
+        tileDescriptionTextColor: Color(0xFFA6AEBD),
+      ),
       sections: [
         customClientSection,
         if (!bind.isDisableAccount())

@@ -1,4 +1,5 @@
 import 'package:bot_toast/bot_toast.dart';
+import '../tapdesk_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
@@ -83,10 +84,21 @@ class _PeerCardState extends State<_PeerCard>
   Widget _buildPortrait() {
     final peer = super.widget.peer;
     return Card(
-        margin: EdgeInsets.symmetric(horizontal: 2),
+        // TapDesk：白卡 + 14 圆角 + hairline，靠间距和描边分区，不再依赖分割线。
+        margin: EdgeInsets.symmetric(
+            horizontal: TapDeskTokens.spaceMd, vertical: TapDeskTokens.spaceXs),
+        elevation: 0,
+        color: TapDeskTokens.isDark(context)
+            ? Theme.of(context).colorScheme.surface
+            : TapDeskTokens.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(TapDeskTokens.radiusCard),
+          side: BorderSide(color: TapDeskTokens.line(context), width: 1),
+        ),
+        clipBehavior: Clip.antiAlias,
         child: gestureDetector(
           child: Container(
-              padding: EdgeInsets.only(left: 12, top: 8, bottom: 8),
+              padding: const EdgeInsets.all(TapDeskTokens.spaceMd),
               child: _buildPeerTile(context, peer, null)),
         ));
   }
@@ -147,7 +159,7 @@ class _PeerCardState extends State<_PeerCard>
             decoration: BoxDecoration(
               color: str2color('${peer.id}${peer.platform}', 0x7f),
               borderRadius: isPortrait
-                  ? BorderRadius.circular(_tileRadius)
+                  ? BorderRadius.circular(TapDeskTokens.radiusAvatar)
                   : BorderRadius.only(
                       topLeft: Radius.circular(_tileRadius),
                       bottomLeft: Radius.circular(_tileRadius),
@@ -171,7 +183,9 @@ class _PeerCardState extends State<_PeerCard>
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
+              color: isPortrait
+                  ? Colors.transparent
+                  : Theme.of(context).colorScheme.background,
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(_tileRadius),
                 bottomRight: Radius.circular(_tileRadius),
@@ -188,7 +202,12 @@ class _PeerCardState extends State<_PeerCard>
                             child: Text(
                           peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall,
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.1,
+                                  ),
                         )),
                       ]).marginOnly(top: isPortrait ? 0 : 2),
                       Row(
@@ -201,7 +220,12 @@ class _PeerCardState extends State<_PeerCard>
                                 alignment: Alignment.centerLeft,
                                 child: Text(
                                   name,
-                                  style: isPortrait ? null : greyStyle,
+                                  style: isPortrait
+                                      ? TextStyle(
+                                          fontSize: 12,
+                                          color: TapDeskTokens.secondaryText(
+                                              context))
+                                      : greyStyle,
                                   textAlign: TextAlign.start,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -217,7 +241,12 @@ class _PeerCardState extends State<_PeerCard>
                                   alignment: Alignment.centerLeft,
                                   child: Text(
                                     peer.note,
-                                    style: isPortrait ? null : greyStyle,
+                                    style: isPortrait
+                                        ? TextStyle(
+                                            fontSize: 12,
+                                            color: TapDeskTokens.secondaryText(
+                                                context))
+                                        : greyStyle,
                                     textAlign: TextAlign.start,
                                     overflow: TextOverflow.ellipsis,
                                   ).marginOnly(

@@ -18,6 +18,7 @@ import '../../common.dart';
 import '../../common/widgets/overlay.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/tapdesk_power.dart';
+import '../../common/tapdesk_tokens.dart';
 import '../../common/widgets/remote_input.dart';
 import '../../models/input_model.dart';
 import '../../models/model.dart';
@@ -608,7 +609,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
 
     // 参照 TapMood 的 TabBar：浅色 surface 底 + 顶部 hairline + 每格 flex:1 等分，
     // 图标 24、标签 10px。底栏浮在画面上，SafeArea 由这里自己补。
-    Widget item(IconData icon, String label, VoidCallback? onTap) {
+    Widget item(IconData icon, String label, VoidCallback? onTap,
+        {Color? color}) {
       return Expanded(
         child: InkWell(
           onTap: onTap,
@@ -617,7 +619,9 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 24, color: colors.onSurface),
+                Icon(icon,
+                    size: TapDeskTokens.iconLg,
+                    color: color ?? colors.onSurface),
                 const SizedBox(height: 2),
                 Text(
                   translate(label),
@@ -650,13 +654,14 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
             if (canControl) item(Icons.keyboard, 'Keyboard', openKeyboard),
             if (canControl)
               item(
-                gFFI.ffiModel.touchMode ? Icons.touch_app : Icons.mouse,
+                Icons.gesture,
                 'Gesture',
                 () => setState(() => _showGestureHelp = !_showGestureHelp),
               ),
             if (peerSupportsShutdown)
               item(Icons.power_settings_new, 'Power',
-                  () => shutdownViaCtrlAltDel()),
+                  () => shutdownViaCtrlAltDel(),
+                  color: TapDeskTokens.accent),
             if (!ffiModel.viewOnly && ffiModel.keyboard)
               item(Icons.lock_outline, 'Lock',
                   () => bind.sessionLockScreen(sessionId: sessionId)),
