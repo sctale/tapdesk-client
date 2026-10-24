@@ -71,3 +71,5 @@ flutter/lib/brand/
 
 # deliverable, see V-Coding convention: <Project>-v<version>.apk
 /*.apk
+# 设计审计产物（审计技能生成，本地留存）
+spark-output/
