@@ -908,8 +908,6 @@ class RecentPeerCard extends BasePeerCard {
       _connectAction(context),
     ];
 
-    final List favs = (await bind.mainGetFav()).toList();
-
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
       menuItems.add(_tcpTunnelingAction(context));
     }
@@ -926,12 +924,6 @@ class RecentPeerCard extends BasePeerCard {
     }
     if (await bind.mainPeerHasPassword(id: peer.id)) {
       menuItems.add(_unrememberPasswordAction(peer.id));
-    }
-
-    if (!favs.contains(peer.id)) {
-      menuItems.add(_addFavAction(peer.id));
-    } else {
-      menuItems.add(_rmFavAction(peer.id, () async {}));
     }
 
     if (gFFI.userModel.userName.isNotEmpty) {

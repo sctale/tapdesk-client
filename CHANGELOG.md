@@ -12,6 +12,7 @@
 - **设置页从 25+ 行瘦到 7 行**：只留 服务器 / 语言 / 主题 / 保持屏幕常亮，加"关于"里的版本与构建时间。收起的是 Socks5 代理、WebSocket、TLS 回退、UDP 开关、TCP/UDP 打洞、IPv6/WebRTC P2P、硬件编码、录制（含保存目录）与快捷键页入口。总开关是 `flutter/lib/consts.dart` 的 `kTapDeskLite`，改回 `false` 即恢复。
 - **关于页白标**：标题改为「关于 TapDesk」，去掉 指纹 与 ID（那是被控端身份，主控端没有意义）和 Privacy Statement；版本行的链接从 rustdesk.com 换成本仓库。
 - **首页只留最近列表**：收藏与局域网两个页签不再可见，对应视图也不会随页签挂载。
+- **设备卡片菜单里的 收藏/取消收藏 一并去掉**：收藏页签已经不可见，留着只会写进一个看不到的列表。最近卡片的菜单现在是 连接 / 重命名 / 忘记已存密码 / 移除。
 - **会话底部栏去掉 ✕**：关闭会话交给系统返回键（`WillPopScope → clientClose`），一排剩 键盘 / 触摸·鼠标 / 电源 / 锁定 / ⋮ 五个。
 - **关机失败提示中文化**：host 的 `No permission of terminal` 与 `No active console user logged on` 两条映射成中文解释；认不出来的错误仍原样透出，不吞原因。
 
