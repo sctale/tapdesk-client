@@ -4,6 +4,14 @@
 `flutter/pubspec.yaml` 的 build 号取 `minor*100 + patch`（0.1.1 → 101），
 经 RustDesk 的映射后 versionCode = `2000 + build`（101 → 2101），保证只增不减、可覆盖安装。
 
+## [0.2.1] - 2026-10-24
+
+### 变更
+- **底部栏按 TapMood 的 TabBar 规格重做**：浅色 surface 底 + 顶部 0.5px 分割线 + **每格 `flex:1` 等分**，图标 24、标签 10px。当前是 键盘 / 手势 / 电源 / 锁定 / 更多 / 收起 六格（按条件出现的项会自动少格，仍然均分）。
+  旧版用 `spaceBetween` 把图标全挤在左边、右侧箭头独占另一端，中间留一大块空档，这是"难看"的根因；顺带解决了审计 audit-1「纯图标看不出是什么」——每个按钮下面直接写动作名。
+- 底部栏不再给 Android 对等端单独留"键盘 + 小工具"分支：我们的场景只有 Windows / Linux 桌面端，少一条分支少一份猜。
+- 新增文案键 `Gesture`（手势）、`Lock`（锁定）、`Collapse bar`（收起）。
+
 ## [0.2.0] - 2026-10-24
 
 一轮按体验审计（`spark-output/audit/tapdesk.md`：14 条 findings，7 major / 7 minor / 0 blocker）做的整体简化。所有收起都用入口开关，上游实现保留。

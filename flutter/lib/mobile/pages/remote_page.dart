@@ -603,85 +603,71 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
 
   Widget getBottomAppBar() {
     final ffiModel = Provider.of<FfiModel>(context);
-    return BottomAppBar(
-      elevation: 10,
-      color: MyTheme.accent,
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          Row(
-              // 关闭会话交给系统返回键（WillPopScope → clientClose），底部栏不再放 ✕；
-              // 一排只剩 键盘 / 触摸·鼠标 / 电源 / 锁定 / ⋮ 五个。
-              children: <Widget>[] +
-                  (isWebDesktop || ffiModel.viewOnly || !ffiModel.keyboard
-                      ? []
-                      : gFFI.ffiModel.isPeerAndroid
-                          ? [
-                              IconButton(
-                                  color: Colors.white,
-                                  icon: Icon(Icons.keyboard),
-                                  onPressed: openKeyboard),
-                              IconButton(
-                                color: Colors.white,
-                                icon: const Icon(Icons.build),
-                                onPressed: () => gFFI.dialogManager
-                                    .toggleMobileActionsOverlay(ffi: gFFI),
-                              )
-                            ]
-                          : [
-                              IconButton(
-                                  color: Colors.white,
-                                  icon: Icon(Icons.keyboard),
-                                  onPressed: openKeyboard),
-                              IconButton(
-                                color: Colors.white,
-                                icon: Icon(gFFI.ffiModel.touchMode
-                                    ? Icons.touch_app
-                                    : Icons.mouse),
-                                onPressed: () => setState(
-                                    () => _showGestureHelp = !_showGestureHelp),
-                              ),
-                            ]) +
-                  [
-                    // 常驻电源键：Windows 对等端一键插入 Ctrl+Alt+Del，安全屏幕右下角
-                    // 就是电源按钮 —— 不依赖对端的远程终端。
-                    if (peerSupportsShutdown)
-                      IconButton(
-                        color: Colors.white,
-                        tooltip: translate('Insert Ctrl + Alt + Del'),
-                        icon: Icon(Icons.power_settings_new),
-                        onPressed: () => shutdownViaCtrlAltDel(),
-                      ),
-                    // 常驻锁定键：上游把"锁定远程电脑"藏在 ⋮ 里，这里提到电源键右边，
-                    // 用的是同一个 bind.sessionLockScreen，白名单里就不再重复出现。
-                    if (!ffiModel.viewOnly && ffiModel.keyboard)
-                      IconButton(
-                        color: Colors.white,
-                        tooltip: translate('Insert Lock'),
-                        icon: Icon(Icons.lock_outline),
-                        onPressed: () =>
-                            bind.sessionLockScreen(sessionId: sessionId),
-                      ),
-                    IconButton(
-                      color: Colors.white,
-                      icon: Icon(Icons.more_vert),
-                      onPressed: () {
-                        setState(() => _showEdit = false);
-                        showActions(widget.id);
-                      },
-                    ),
-                  ]),
-          Obx(() => IconButton(
-                color: Colors.white,
-                icon: Icon(Icons.expand_more),
-                onPressed: gFFI.ffiModel.waitForFirstImage.isTrue
-                    ? null
-                    : () {
-                        setState(() => _showBar = !_showBar);
-                      },
-              )),
-        ],
+    final colors = Theme.of(context).colorScheme;
+    final canControl = !isWebDesktop && !ffiModel.viewOnly && ffiModel.keyboard;
+
+    // 参照 TapMood 的 TabBar：浅色 surface 底 + 顶部 hairline + 每格 flex:1 等分，
+    // 图标 24、标签 10px。底栏浮在画面上，SafeArea 由这里自己补。
+    Widget item(IconData icon, String label, VoidCallback? onTap) {
+      return Expanded(
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 54,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 24, color: colors.onSurface),
+                const SizedBox(height: 2),
+                Text(
+                  translate(label),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1.1,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(
+          top: BorderSide(color: MyTheme.border, width: 0.5),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            if (canControl) item(Icons.keyboard, 'Keyboard', openKeyboard),
+            if (canControl)
+              item(
+                gFFI.ffiModel.touchMode ? Icons.touch_app : Icons.mouse,
+                'Gesture',
+                () => setState(() => _showGestureHelp = !_showGestureHelp),
+              ),
+            if (peerSupportsShutdown)
+              item(Icons.power_settings_new, 'Power',
+                  () => shutdownViaCtrlAltDel()),
+            if (!ffiModel.viewOnly && ffiModel.keyboard)
+              item(Icons.lock_outline, 'Lock',
+                  () => bind.sessionLockScreen(sessionId: sessionId)),
+            item(Icons.more_vert, 'More', () {
+              setState(() => _showEdit = false);
+              showActions(widget.id);
+            }),
+            item(Icons.expand_more, 'Collapse bar',
+                () => setState(() => _showBar = !_showBar)),
+          ],
+        ),
       ),
     );
   }
