@@ -39,8 +39,12 @@ class PeerTabModel with ChangeNotifier {
   ];
   List<bool> isEnabled = List.from([
     true,
-    true,
-    !isWeb && bind.mainGetLocalOption(key: "disable-discovery-panel") != "Y",
+    // TapDesk 精简：首页只要最近列表。收藏与局域网页签置为不可见后，对应视图
+    // （FavoritePeersView / DiscoveredPeersView）就不会随页签挂载。
+    !kTapDeskLite,
+    !kTapDeskLite &&
+        !isWeb &&
+        bind.mainGetLocalOption(key: "disable-discovery-panel") != "Y",
     !(bind.isDisableAb() || bind.isDisableAccount()),
     !(bind.isDisableGroupPanel() || bind.isDisableAccount()),
   ]);

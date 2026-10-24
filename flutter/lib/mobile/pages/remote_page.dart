@@ -611,15 +611,9 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
           Row(
-              children: <Widget>[
-                    IconButton(
-                      color: Colors.white,
-                      icon: Icon(Icons.clear),
-                      onPressed: () {
-                        clientClose(sessionId, gFFI);
-                      },
-                    )
-                  ] +
+              // 关闭会话交给系统返回键（WillPopScope → clientClose），底部栏不再放 ✕；
+              // 一排只剩 键盘 / 触摸·鼠标 / 电源 / 锁定 / ⋮ 五个。
+              children: <Widget>[] +
                   (isWebDesktop || ffiModel.viewOnly || !ffiModel.keyboard
                       ? []
                       : gFFI.ffiModel.isPeerAndroid

@@ -248,6 +248,19 @@ void clearPendingShutdown(String peerId) {
   }
 }
 
+/// host 回的错误串是英文，家人看不懂；已知的两条换成中文并说清处境，
+/// 其余原样透出（宁可难看，也不要把原因吞掉）。
+String _localizedShutdownReason(String note) {
+  final lower = note.toLowerCase();
+  if (lower.contains('no permission of terminal')) {
+    return translate('remote terminal not allowed');
+  }
+  if (lower.contains('no active console user')) {
+    return translate('no desktop user signed in');
+  }
+  return note;
+}
+
 /// host 明确不让关机时说出来并立刻收尾 —— 无界面会话没有终端区域能显示失败原因，
 /// 让人干等满 20 秒只会更像"按钮没反应"。
 ///
@@ -261,8 +274,9 @@ void reportShutdownFailure(String peerId, int terminalId, String reason) {
     return;
   }
   _pending = null;
-  final note = reason.trim().isEmpty ? 'Unknown error' : reason.trim();
-  debugPrint('[TapDesk] shutdown refused by $peerId: $note');
+  final raw = reason.trim().isEmpty ? 'Unknown error' : reason.trim();
+  final note = _localizedShutdownReason(raw);
+  debugPrint('[TapDesk] shutdown refused by $peerId: $raw');
   showToast('${translate('Shut down refused')}: $note');
   target.close();
 }
